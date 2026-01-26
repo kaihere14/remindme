@@ -1,6 +1,6 @@
 # Remify <img src="https://img.shields.io/npm/v/remify.svg" alt="npm version"> <img src="https://img.shields.io/npm/l/remify.svg" alt="license"> <img src="https://img.shields.io/github/workflow/status/kaihere14/remindme/CI/main.svg" alt="build status">
 
-**A lightweight, zero‑dependency Node.js library / CLI for creating, managing, and triggering reminders right from your terminal or within your JavaScript/TypeScript projects.**  
+**A Discord bot that lets users create, list, and manage AI‑parsed reminders directly from chat.**  
 
 [Demo](#demo) • [Documentation](#documentation) • [Issues](https://github.com/kaihere14/remindme/issues) • [Pull Requests](https://github.com/kaihere14/remindme/pulls)
 
@@ -8,12 +8,16 @@
 
 ## Overview
 
-Remify lets you schedule one‑off or recurring reminders with a simple, expressive API or via a convenient command‑line interface. Whether you need a quick “drink water” ping while coding or a programmatic reminder system for a larger application, Remify handles the timing, persistence, and notification for you.
+Remify bridges Discord and your personal schedule. Users can type a natural‑language reminder request, and the bot (powered by Groq’s Llama‑3.3 model) extracts the title, date, time, and recurrence automatically. Reminders are stored in MongoDB, can be listed at any time, and are sent to the user’s registered email address when they fire.
 
-* **Zero‑dependency** – pure CommonJS, works on any Node ≥12.
-* **CLI & Library** – use it from the terminal or embed it in your code.
-* **Cross‑platform** – works on Windows, macOS, and Linux.
-* **Extensible** – plug in your own notification handler (console, email, Slack, etc.).
+* **AI‑driven parsing** – No need to remember a strict command syntax.  
+* **Persistent storage** – MongoDB keeps reminders across restarts.  
+* **Email notifications** – Optional email delivery via user‑provided address.  
+* **Fully typed** – Written in TypeScript for safety and IDE support.  
+
+Target audience: Discord server owners who want a lightweight, self‑hosted reminder system for their community.
+
+Current version: **1.0.0**
 
 ---
 
@@ -21,14 +25,13 @@ Remify lets you schedule one‑off or recurring reminders with a simple, express
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **One‑off reminders** | Schedule a reminder to fire at a specific date/time. | ✅ Stable |
-| **Recurring reminders** | Cron‑style recurring reminders (e.g., every day at 9 AM). | ✅ Stable |
-| **Multiple notification channels** | Built‑in console output; custom handlers via callbacks. | ✅ Stable |
-| **Persistence** | Optional JSON file persistence so reminders survive restarts. | ✅ Stable |
-| **CLI commands** | `remify add`, `remify list`, `remify remove`, `remify start`. | ✅ Stable |
-| **Time‑zone aware** | Uses the system’s time zone; can be overridden per reminder. | ✅ Stable |
-| **Graceful shutdown** | Saves pending reminders on `SIGINT`/`SIGTERM`. | ✅ Stable |
-| **TypeScript typings** | Full type definitions for a better developer experience. | ✅ Stable |
+| **Natural‑language reminder creation** | ` /reminder details:"Buy milk tomorrow at 9am"` – AI extracts title, time, repeat. | ✅ Stable |
+| **List active reminders** | ` /list‑reminder` – Shows a nicely formatted embed of all pending reminders. | ✅ Stable |
+| **Email registration** | ` /user email:<address> timezone:<IANA>` – Stores user’s email & timezone. | ✅ Stable |
+| **Ping command** | ` /ping` – Simple health check. | ✅ Stable |
+| **Reminder archiving** | Reminders are automatically archived after they fire. | ✅ Stable |
+| **MongoDB persistence** | All reminders & user profiles survive bot restarts. | ✅ Stable |
+| **Extensible command set** | New slash commands can be added in `src/commands`. | ✅ Stable |
 
 ---
 
@@ -36,12 +39,14 @@ Remify lets you schedule one‑off or recurring reminders with a simple, express
 
 | Layer | Technology |
 |-------|------------|
-| **Runtime** | Node.js (CommonJS) |
-| **Package Manager** | npm |
-| **Language** | JavaScript (ES2020) |
-| **Testing** | (to be added) |
-| **CI** | GitHub Actions (placeholder badge) |
-| **License** | ISC |
+| **Runtime** | Node.js (v20+) |
+| **Language** | TypeScript |
+| **Discord API** | `discord.js` v14 |
+| **AI parsing** | `openai` (Groq endpoint) |
+| **Database** | MongoDB via `mongoose` |
+| **Configuration** | `dotenv` |
+| **Linting** | ESLint with custom `eslint.config.ts` |
+| **Package manager** | npm |
 
 ---
 
@@ -50,21 +55,29 @@ Remify lets you schedule one‑off or recurring reminders with a simple, express
 ```
 remify/
 ├─ src/
-│  ├─ index.js          # Public API entry point
-│  ├─ cli.js            # CLI command handling
-│  ├─ scheduler.js      # Core scheduling engine (setTimeout / cron)
-│  ├─ storage.js        # JSON file persistence layer
-│  └─ notifier.js       # Built‑in console notifier + hook for custom notifiers
-├─ lib/                 # Compiled output (if using Babel/TS)
-├─ test/                # Test suite (Jest/Mocha – to be added)
-└─ package.json
+│  ├─ commands/
+│  │  ├─ email.ts          # Register user email & timezone
+│  │  ├─ listReminder.ts   # List active reminders (embed)
+│  │  ├─ ping.ts           # Simple health check
+│  │  ├─ reminder.ts       # AI‑parsed reminder creation
+│  │  └─ user.ts           # Helper for user profile
+│  ├─ deploy-commands.ts   # Registers slash commands with Discord
+│  ├─ index.ts             # Bot entry point, command loader, error handling
+│  ├─ models/
+│  │  ├─ reminder.model.ts # Mongoose schema for reminders
+│  │  └─ user.models.ts    # Mongoose schema for user profiles
+│  └─ utils/
+│     └─ connectDb.ts      # MongoDB connection helper
+├─ .env.example            # Sample environment variables
+├─ eslint.config.ts        # ESLint rules
+├─ package.json
+└─ tsconfig.json
 ```
 
-* **`index.js`** – Exposes `createReminder`, `listReminders`, `removeReminder`, and `startScheduler`.
-* **`cli.js`** – Parses command‑line arguments with `process.argv` and forwards to the core API.
-* **`scheduler.js`** – Manages timers, supports both absolute dates and cron expressions.
-* **`storage.js`** – Reads/writes a `reminders.json` file in the user’s home directory.
-* **`notifier.js`** – Default console logger; users can register a custom function `(reminder) => void`.
+* **`index.ts`** – Connects to MongoDB, loads commands, and starts the Discord client.  
+* **`deploy-commands.ts`** – One‑off script to register all slash commands globally or per guild.  
+* **`models/`** – Mongoose schemas that define the data shape for reminders and users.  
+* **`utils/connectDb.ts`** – Centralised MongoDB connection with error handling.  
 
 ---
 
@@ -72,183 +85,162 @@ remify/
 
 ### Prerequisites
 
-| Requirement | Minimum Version |
+| Requirement | Minimum version |
 |-------------|-----------------|
-| **Node.js** | 12.0.0 |
-| **npm**     | 6.0.0 |
+| **Node.js** | 20.0.0 |
+| **npm** | 10.0.0 |
+| **MongoDB** | 5.0 (cloud Atlas or local) |
+| **Discord Bot Token** | Create a bot in the Discord Developer Portal |
+| **Groq API Key** | Sign‑up at https://groq.com/ for `GROQ_API_KEY` |
 
 ### Installation
 
-#### As a library (npm)
-
 ```bash
-npm install remify
+# Clone the repository
+git clone https://github.com/kaihere14/remindme.git
+cd remindme
+
+# Install dependencies
+npm install
 ```
 
-#### As a global CLI tool
+### Configuration
 
-```bash
-npm install -g remify
+Create a `.env` file at the project root (copy from `.env.example`):
+
+```dotenv
+# Discord
+DISCORD_BOT_TOKEN=your-discord-bot-token
+
+# MongoDB
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/remify?retryWrites=true&w=majority
+
+# Groq (AI parsing)
+GROQ_API_KEY=your-groq-api-key
+
+# Optional defaults
+DEFAULT_TIMEZONE=UTC
 ```
 
-### Verification
+**`.env.example`**
 
-```bash
-# Verify library installation
-node -e "console.log(require('remify').version)"
-# Verify CLI installation
-remify --version
+```dotenv
+DISCORD_BOT_TOKEN=
+MONGODB_URI=
+GROQ_API_KEY=
+DEFAULT_TIMEZONE=UTC
 ```
 
-Both commands should output `1.0.0`.
+### Build & Run
+
+```bash
+# Compile TypeScript
+npm run build
+
+# Register slash commands (run once or after adding new commands)
+npm run deploy
+
+# Start the bot
+npm start
+```
+
+For rapid development you can skip the build step:
+
+```bash
+npm run dev   # uses ts-node
+```
+
+The bot will connect to Discord, register its commands (if not already), and begin listening for interactions.
 
 ---
 
-## Configuration
+## Usage (Discord)
 
-Remify can be configured via environment variables or a `.remifyrc.json` file placed in the project root or the user’s home directory.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `REMIFY_STORAGE_PATH` | Path to the JSON file used for persistence. | `~/.remify/reminders.json` |
-| `REMIFY_TZ` | Default time‑zone (IANA string, e.g., `America/New_York`). | System time‑zone |
-| `REMIFY_LOG_LEVEL` | `error`, `warn`, `info`, `debug`. | `info` |
-
-**Example `.remifyrc.json`**
-
-```json
-{
-  "storagePath": "/var/lib/remify/reminders.json",
-  "tz": "Europe/Paris",
-  "logLevel": "debug"
-}
-```
-
----
-
-## Usage
-
-### As a Library
-
-```js
-// index.js
-const { createReminder, listReminders, startScheduler } = require('remify');
-
-// Schedule a one‑off reminder
-createReminder({
-  id: 'drink-water',
-  message: 'Time to drink water!',
-  at: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
-});
-
-// Schedule a recurring reminder (every day at 9:00 AM)
-createReminder({
-  id: 'daily-standup',
-  message: 'Daily stand‑up meeting',
-  cron: '0 9 * * *' // cron expression
-});
-
-// Start the background scheduler (required for CLI‑less usage)
-startScheduler();
-
-console.log('Current reminders:', listReminders());
-```
-
-### As a CLI
-
-```bash
-# Add a one‑off reminder
-remify add --id coffee --msg "Take a coffee break" --at "2024-02-15T15:30:00"
-
-# Add a recurring reminder (every Monday at 10 AM)
-remify add --id weekly-sync --msg "Weekly sync meeting" --cron "0 10 * * 1"
-
-# List all scheduled reminders
-remify list
-
-# Remove a reminder
-remify remove --id coffee
-
-# Start the scheduler (keeps the process alive and fires reminders)
-remify start
-```
-
-#### CLI Options Overview
+All interactions are performed via **slash commands**.
 
 | Command | Options | Description |
 |---------|---------|-------------|
-| `add`   | `--id <string>` (required) <br> `--msg <string>` (required) <br> `--at <ISO8601>` <br> `--cron <cron>` <br> `--tz <IANA>` | Create a new reminder. Either `--at` **or** `--cron` must be supplied. |
-| `list`  | `--json` | Print reminders in JSON format. |
-| `remove`| `--id <string>` (required) | Delete a reminder by its identifier. |
-| `start` | `--port <number>` (optional) | Launch the scheduler daemon. |
-| `help`  | — | Show help for a command. |
+| `/reminder` | `details` (string, required) | Natural‑language description of the reminder (e.g., “Submit report tomorrow at 5 pm daily”). |
+| `/list‑reminder` | — | Shows an embed with all active reminders for the invoking user. |
+| `/email` | `email` (string, required) `timezone` (string, optional) | Saves the user’s email address and optional IANA timezone for future reminders. |
+| `/ping` | — | Replies with “Pong!” – useful to verify the bot is alive. |
+| `/user` | (internal) | Helper command used by other commands to fetch user profile. |
+
+### Example Flow
+
+1. **Register your email**  
+
+   `/email email:you@example.com timezone:America/New_York`
+
+2. **Create a reminder**  
+
+   `/reminder details:"Buy groceries tomorrow at 10am"`  
+
+   The bot replies “✅ Reminder set successfully!” and stores the reminder.
+
+3. **List your reminders**  
+
+   `/list-reminder` – receives an embed with titles, dates, repeat status, and email target.
+
+4. **When the reminder fires**  
+
+   The bot sends a direct message in Discord and, if an email is set, an email is dispatched (email sending logic can be extended).
 
 ---
 
 ## Development
 
-### Clone the repository
+### Linting
+
+The project uses a custom ESLint configuration (`eslint.config.ts`). Run:
 
 ```bash
-git clone https://github.com/kaihere14/remindme.git
-cd remindme
+npm run lint   # (add a script in package.json if not present)
 ```
 
-### Install development dependencies
+### Testing
 
-```bash
-npm install
-```
-
-### Run the test suite (placeholder)
-
-```bash
-npm test
-```
-
-> **Note:** The test suite is currently a stub. Contributions that add unit/integration tests are highly encouraged.
-
-### Code style
-
-* Use **ESLint** with the `eslint:recommended` configuration.
-* Follow the **Airbnb JavaScript** style guide (except where it conflicts with Node’s CommonJS module system).
+At the moment there are no automated tests. Contributions that add unit/integration tests are highly encouraged.
 
 ### Debugging
 
 ```bash
 # Enable verbose logging
-export REMIFY_LOG_LEVEL=debug
-node src/cli.js start
+export DEBUG=remify:*
+npm run dev
 ```
+
+### Adding a New Command
+
+1. Create a new file in `src/commands/` exporting `data` (SlashCommandBuilder) and `execute`.  
+2. The command will be auto‑loaded by `src/index.ts`.  
+3. Run `npm run deploy` to register the new slash command with Discord.
 
 ---
 
 ## Deployment
 
-Remify is a pure Node.js package, so deployment is simply publishing to npm.
+### Production (Node)
 
 ```bash
-npm login
-npm publish
-```
+# Build
+npm run build
 
-For production environments that rely on the CLI daemon:
-
-```bash
-# Install globally on the target machine
-npm install -g remify
+# Register commands (once per deployment)
+npm run deploy
 
 # Run as a background service (systemd example)
 cat <<EOF | sudo tee /etc/systemd/system/remify.service
 [Unit]
-Description=Remify reminder daemon
+Description=Remify Discord reminder bot
 After=network.target
 
 [Service]
-ExecStart=$(which remify) start
+ExecStart=$(which node) /path/to/remify/dist/index.js
 Restart=on-failure
-User=nobody
-Environment=REMIFY_STORAGE_PATH=/var/lib/remify/reminders.json
+EnvironmentFile=/path/to/remify/.env
+User=discordbot
+Group=discordbot
 
 [Install]
 WantedBy=multi-user.target
@@ -259,40 +251,60 @@ sudo systemctl enable remify
 sudo systemctl start remify
 ```
 
+### Docker (optional)
+
+A minimal Dockerfile can be added later; for now you can run the bot in any container that provides Node 20, the `.env` file, and network access to MongoDB and Discord.
+
 ---
 
-## API Documentation
+## API Documentation (Bot Commands)
 
-### `createReminder(options)`
+### `/reminder`
 
-Creates a new reminder.
+**Parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `options.id` | `string` | Unique identifier for the reminder. |
-| `options.message` | `string` | Text displayed when the reminder fires. |
-| `options.at` | `Date \| string` | Absolute date/time (ISO‑8601 or `Date`). |
-| `options.cron` | `string` | Cron expression for recurring reminders. |
-| `options.tz` | `string` (optional) | IANA time‑zone for this reminder. |
-| `options.persist` | `boolean` (default: `true`) | Whether to store the reminder on disk. |
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `details` | string | ✅ | Free‑form description of the task and timing (e.g., “Call Mom next Monday at 7 pm”). |
 
-**Returns:** `Promise<Reminder>` – resolves with the created reminder object.
+**Behaviour**  
+The bot sends the description to Groq’s Llama‑3.3 model, which returns a JSON payload:
 
-### `listReminders([filter])`
+```json
+{
+  "title": "Call Mom",
+  "remindAt": "2024-09-02T19:00:00.000Z",
+  "repeat": "none"
+}
+```
 
-Returns an array of all scheduled reminders. Optional `filter` can be an object `{ id?: string, active?: boolean }`.
+The bot stores the reminder, links it to the user’s Discord ID and email (if set), and replies with a success message.
 
-### `removeReminder(id)`
+### `/list-reminder`
 
-Deletes a reminder by its `id`. Returns `true` if a reminder was removed, `false` otherwise.
+No parameters. Returns an embed containing:
 
-### `startScheduler([options])`
+* Index number  
+* Title  
+* When (absolute date + relative time)  
+* Type (once / daily / weekly)  
+* Status (Pending / Sent)  
+* Email target
 
-Starts the internal timer loop. If the process exits (e.g., `Ctrl+C`), pending reminders are persisted automatically.
+### `/email`
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `options.persistPath` | `string` | Override the storage path for this session. |
+**Parameters**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `email` | string | ✅ | Valid email address for notifications. |
+| `timezone` | string | ❌ | IANA timezone (e.g., `Europe/Paris`). Defaults to `DEFAULT_TIMEZONE` env var. |
+
+Stores the data in the `users` collection.
+
+### `/ping`
+
+No parameters. Replies with “Pong!” – useful for health checks.
 
 ---
 
@@ -300,29 +312,30 @@ Starts the internal timer loop. If the process exits (e.g., `Ctrl+C`), pending r
 
 We welcome contributions! Please follow these steps:
 
-1. **Fork** the repository and **clone** your fork.
-2. Create a feature branch: `git checkout -b feat/awesome-feature`.
-3. Make your changes, ensuring the code passes linting (`npm run lint`) and any existing tests.
-4. Add or update tests for new functionality.
-5. Commit with a clear message: `git commit -m "feat: add recurring reminder support"`.
-6. Push to your fork: `git push origin feat/awesome-feature`.
-7. Open a **Pull Request** against the `main` branch.
+1. **Fork** the repository and **clone** your fork.  
+2. Create a feature branch: `git checkout -b feat/awesome-feature`.  
+3. Install dependencies (`npm install`) and make your changes.  
+4. Ensure the code passes linting (`npm run lint`).  
+5. (Optional) Add tests for new functionality.  
+6. Commit with a clear message, e.g., `feat: add weekly reminder command`.  
+7. Push to your fork and open a **Pull Request** against `main`.
 
 ### Development Workflow
 
 | Step | Command |
 |------|---------|
 | Install dependencies | `npm install` |
-| Run linter | `npm run lint` |
-| Run tests | `npm test` |
-| Build (if using Babel/TS) | `npm run build` |
+| Run the bot in dev mode | `npm run dev` |
+| Build production bundle | `npm run build` |
+| Deploy slash commands | `npm run deploy` |
+| Lint | `npm run lint` |
 
 ### Code Review Guidelines
 
-* Keep changes **atomic** – one feature or bug fix per PR.
-* Ensure **unit tests** cover new code paths.
-* Update **README** and **API docs** when public behavior changes.
-* Follow the existing **coding style** and **naming conventions**.
+* Keep PRs focused on a single feature or bug fix.  
+* Write clear commit messages.  
+* Update the README (or other docs) when you change public behaviour.  
+* Follow the existing TypeScript and ESLint conventions.
 
 ---
 
@@ -330,11 +343,12 @@ We welcome contributions! Please follow these steps:
 
 | Problem | Solution |
 |---------|----------|
-| **Reminders don’t fire after a restart** | Ensure `REMIFY_STORAGE_PATH` points to a writable location and that the JSON file isn’t corrupted. |
-| **Cron expression not recognized** | Use a valid 5‑field cron string (`minute hour day month weekday`). |
-| **CLI shows “command not found”** | Verify that the global npm bin directory is in your `PATH` (`npm root -g`/`npm bin -g`). |
-| **Time‑zone mismatch** | Set `REMIFY_TZ` or pass `tz` in the reminder options. |
-| **Permission denied when persisting** | Run the CLI with a user that has write access to the storage path, or change the path via `--storagePath`. |
+| **Bot fails to start – missing token** | Ensure `DISCORD_BOT_TOKEN` is set in `.env`. |
+| **Reminders never fire** | Verify `MONGODB_URI` is correct and the bot can write to the `reminders` collection. |
+| **AI parsing returns errors** | Check that `GROQ_API_KEY` is valid and you have sufficient quota. |
+| **Email not sent** | The current implementation only stores the email; you’ll need to integrate an email service (e.g., Nodemailer). |
+| **Slash commands not appearing** | Run `npm run deploy` again; it may take a few minutes for Discord to propagate changes. |
+| **Time‑zone issues** | Set `DEFAULT_TIMEZONE` in `.env` or provide a timezone when registering your email. |
 
 For additional help, open an issue or join the discussion in the repository’s **Discussions** tab.
 
@@ -342,9 +356,9 @@ For additional help, open an issue or join the discussion in the repository’s 
 
 ## Roadmap
 
-- **v1.1** – Add email and Slack notification adapters.
-- **v1.2** – Introduce a web UI dashboard.
-- **v2.0** – Full TypeScript rewrite with pluggable storage backends (SQLite, Redis).
+- **v1.1** – Add email delivery via Nodemailer.  
+- **v1.2** – Introduce a `/remindme` dashboard command with pagination.  
+- **v2.0** – Full plugin system for alternative notification channels (Slack, SMS).  
 
 ---
 
@@ -358,7 +372,6 @@ For additional help, open an issue or join the discussion in the repository’s 
 
 **Acknowledgments**
 
-- Thanks to the Node.js community for the robust `timers` and `fs` APIs.
+- `discord.js` – powerful Discord API library.  
+- Groq – for the fast Llama‑3.3 inference endpoint.  
 - Badge icons provided by [shields.io](https://shields.io).
-
----
