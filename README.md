@@ -1,6 +1,6 @@
 # Remify <img src="https://img.shields.io/npm/v/remify.svg" alt="npm version"> <img src="https://img.shields.io/npm/l/remify.svg" alt="license"> <img src="https://img.shields.io/github/workflow/status/kaihere14/remindme/CI/main.svg" alt="build status">
 
-**A Discord bot that lets users create, list, and manage AI‑parsed reminders directly from chat.**  
+**A Discord bot that lets users create, list, and manage AI‑parsed reminders directly from chat, with automatic email delivery via Resend.**  
 
 [Demo](#demo) • [Documentation](#documentation) • [Issues](https://github.com/kaihere14/remindme/issues) • [Pull Requests](https://github.com/kaihere14/remindme/pulls)
 
@@ -8,11 +8,11 @@
 
 ## Overview
 
-Remify bridges Discord and your personal schedule. Users can type a natural‑language reminder request, and the bot (powered by Groq’s Llama‑3.3 model) extracts the title, date, time, and recurrence automatically. Reminders are stored in MongoDB, can be listed at any time, and are sent to the user’s registered email address when they fire.
+Remify bridges Discord and your personal schedule. Users type a natural‑language reminder request, and the bot (powered by Groq’s Llama‑3.3 model) extracts the title, date, time, and recurrence automatically. Reminders are stored in MongoDB, can be listed at any time, and are **sent to the user’s registered email address via the Resend service** when they fire.
 
 * **AI‑driven parsing** – No need to remember a strict command syntax.  
 * **Persistent storage** – MongoDB keeps reminders across restarts.  
-* **Email notifications** – Optional email delivery via user‑provided address.  
+* **Email notifications** – Fully automated delivery using Resend.  
 * **Fully typed** – Written in TypeScript for safety and IDE support.  
 
 Target audience: Discord server owners who want a lightweight, self‑hosted reminder system for their community.
@@ -32,6 +32,7 @@ Current version: **1.0.0**
 | **View profile** | ` /profile` – Displays the user’s email, timezone, reminder count, recent reminders, and join date. | ✅ Stable |
 | **Reminder archiving** | Reminders are automatically archived after they fire. | ✅ Stable |
 | **MongoDB persistence** | All reminders & user profiles survive bot restarts. | ✅ Stable |
+| **Automated email dispatch** | When a reminder is due, a cron job sends an email via **Resend**. | ✅ Stable |
 | **Extensible command set** | New slash commands can be added in `src/commands`. | ✅ Stable |
 
 ---
@@ -45,7 +46,9 @@ Current version: **1.0.0**
 | **Discord API** | `discord.js` v14 |
 | **AI parsing** | `openai` (Groq endpoint) |
 | **Database** | MongoDB via `mongoose` |
+| **Email service** | `resend` |
 | **Configuration** | `dotenv` |
+| **Scheduling** | `node‑cron` |
 | **Linting** | ESLint with custom `eslint.config.ts` |
 | **Package manager** | npm |
 
@@ -66,7 +69,8 @@ remify/
 │  ├─ index.ts             # Bot entry point, command loader, error handling
 │  ├─ utils/
 │  │  ├─ connectDb.ts      # MongoDB connection helper
-│  │  └─ cron.jobs.ts      # Background scheduler that fires reminders (runs as a cron job)
+│  │  ├─ cron.jobs.ts      # Background scheduler that fires reminders and updates recurrence
+│  │  └─ email.resend.ts   # Sends reminder emails through Resend
 │  └─ models/
 │     ├─ reminder.model.ts # Mongoose schema for reminders
 │     └─ user.models.ts    # Mongoose schema for user profiles
@@ -77,7 +81,8 @@ remify/
 ```
 
 * **`index.ts`** – Connects to MongoDB, loads commands, and starts the Discord client.  
-* **`cron.jobs.ts`** – Contains the background scheduler that checks for due reminders and logs a startup message when the process begins. This file is now launched automatically alongside the bot via the updated `start` and `dev` scripts.  
+* **`cron.jobs.ts`** – Runs every minute, finds due reminders, sends emails via `email.resend.ts`, and updates or deletes the reminder based on its repeat setting. Logs “started jobs” on startup.  
+* **`email.resend.ts`** – Wraps the Resend SDK to deliver reminder emails.  
 * **`deploy-commands.ts`** – One‑off script to register all slash commands globally or per guild.  
 * **`models/`** – Mongoose schemas that define the data shape for reminders and users.  
 * **`utils/connectDb.ts`** – Centralised MongoDB connection with error handling.  
@@ -95,6 +100,7 @@ remify/
 | **MongoDB** | 5.0 (cloud Atlas or local) |
 | **Discord Bot Token** | Create a bot in the Discord Developer Portal |
 | **Groq API Key** | Sign‑up at https://groq.com/ for `GROQ_API_KEY` |
+| **Resend API Key** | Sign‑up at https://resend.com/ for `RESEND_API_KEY` |
 
 ### Installation
 
@@ -121,6 +127,9 @@ MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/remify?retryWrites=true&
 # Groq (AI parsing)
 GROQ_API_KEY=your-groq-api-key
 
+# Resend (email delivery)
+RESEND_API_KEY=your-resend-api-key
+
 # Optional defaults
 DEFAULT_TIMEZONE=UTC
 ```
@@ -131,6 +140,7 @@ DEFAULT_TIMEZONE=UTC
 DISCORD_BOT_TOKEN=
 MONGODB_URI=
 GROQ_API_KEY=
+RESEND_API_KEY=
 DEFAULT_TIMEZONE=UTC
 ```
 
@@ -197,6 +207,8 @@ All interactions are performed via **slash commands**.
 5. **View your profile**  
 
    `/profile` – shows a summary of your stored information and recent reminders.
+
+When a reminder becomes due, the bot automatically sends an email to the address you registered (or updated) via Resend.
 
 ---
 
@@ -305,10 +317,10 @@ We welcome contributions! Please follow these steps:
 | **Bot fails to start – missing token** | Ensure `DISCORD_BOT_TOKEN` is set in `.env`. |
 | **Reminders never fire** | Verify `MONGODB_URI` is correct and the bot can write to the `reminders` collection. |
 | **AI parsing returns errors** | Check that `GROQ_API_KEY` is valid and you have sufficient quota. |
-| **Email not sent** | The current implementation only stores the email; you’ll need to integrate an email service (e.g., Nodemailer). |
+| **Email not sent** | Make sure `RESEND_API_KEY` is set and the Resend service is reachable. Check the console for any “Failed to process reminder” errors. |
 | **Slash commands not appearing** | Run `npm run deploy` again; it may take a few minutes for Discord to propagate changes. |
 | **Time‑zone issues** | Set `DEFAULT_TIMEZONE` in `.env` or provide a timezone when registering your email. |
-| **Cron scheduler not starting** | The startup log “Cron jobs initialized” appears in the console when `npm start` or `npm run dev` is executed. If you don’t see it, ensure you are using the latest scripts (`npm run start` / `npm run dev`). |
+| **Cron scheduler not starting** | The startup log “started jobs” appears in the console when `npm start` or `npm run dev` is executed. If you don’t see it, ensure you are using the latest scripts (`npm run start` / `npm run dev`). |
 
 For additional help, open an issue or join the discussion in the repository’s **Discussions** tab.
 
@@ -316,7 +328,7 @@ For additional help, open an issue or join the discussion in the repository’s 
 
 ## Roadmap
 
-- **v1.1** – Add email delivery via Nodemailer.  
+- **v1.1** – Add richer email templates and attachment support.  
 - **v1.2** – Introduce a `/remindme` dashboard command with pagination.  
 - **v2.0** – Full plugin system for alternative notification channels (Slack, SMS).  
 
@@ -334,4 +346,5 @@ For additional help, open an issue or join the discussion in the repository’s 
 
 - `discord.js` – powerful Discord API library.  
 - Groq – for the fast Llama‑3.3 inference endpoint.  
+- Resend – for reliable transactional email delivery.  
 - Badge icons provided by [shields.io](https://shields.io).
