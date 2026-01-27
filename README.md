@@ -24,7 +24,7 @@
   - [/change‑email](#change-email)  
   - [/profile](#profile)  
   - [/list‑reminder](#list-reminder)  
-  - [Health‑check endpoint](#health-check-endpoint)  
+  - [Health‑check & API endpoints](#health-check--api-endpoints)  
 - [Development](#development)  
   - [Running in Dev Mode](#running-in-dev-mode)  
   - [Testing](#testing)  
@@ -49,7 +49,7 @@
 | **User profile** | Stores Discord ID, email, and timezone in MongoDB. | ✅ Stable |
 | **List & manage reminders** | Commands to list upcoming reminders and delete/archieve them. | ✅ Stable |
 | **Slash‑command deployment script** | `src/deploy-commands.ts` registers all commands with Discord automatically. | ✅ Stable |
-| **Cron‑based scheduler** | Runs every minute, finds due reminders, sends emails, and updates or deletes them. | ✅ Stable |
+| **API‑triggered scheduler** | An Express endpoint (`POST /api/cron`) runs the reminder‑dispatch logic on demand. This enables external cron services or manual triggers. | ✅ Stable |
 | **Basic HTTP health server** | A lightweight HTTP server listens on port 3000 and returns a simple health‑check response. | ✅ Stable |
 | **TypeScript + ESLint** | Full type safety and linting for maintainability. | ✅ Stable |
 
@@ -65,8 +65,8 @@
 | **LLM** | `openai` (Groq endpoint) | Fast, cost‑effective natural‑language parsing |
 | **Database** | MongoDB (via `mongoose` v9) | Flexible schema for user & reminder data |
 | **Email** | `resend` | Simple transactional email service |
-| **Scheduling** | `node-cron` | Minute‑level cron jobs |
-| **HTTP Server** | Node’s built‑in `http` module | Zero‑dependency health‑check endpoint |
+| **Scheduling** | Express API (`POST /api/cron`) | Allows external cron services or manual invocation |
+| **HTTP Server** | Express | Zero‑dependency health‑check & API endpoint |
 | **Environment** | `dotenv` | Secure handling of secrets |
 | **Linting** | ESLint + `@typescript-eslint` | Code quality enforcement |
 | **Build** | TypeScript compiler (`tsc`) | Transpiles to JavaScript for production |
@@ -88,7 +88,7 @@ src/
 │   └─ user.models.ts
 ├─ utils/               # Helper modules
 │   ├─ connectDb.ts     # MongoDB connection
-│   ├─ cron.jobs.ts     # Scheduler that sends emails
+│   ├─ cron.jobs.ts     # Scheduler logic (runs when invoked)
 │   └─ email.resend.ts  # Wrapper around Resend API
 ├─ deploy-commands.ts   # Registers slash commands with Discord
 ├─ index.ts             # Bot bootstrap (client, command loader, HTTP server)
@@ -97,9 +97,11 @@ src/
 
 * **Command Loader** – `index.ts` reads every `*.ts` file in `src/commands`, validates the exported `data` (SlashCommandBuilder) and `execute` function, and registers them in a `Collection`.
 * **Reminder Flow** – `/reminder` → LLM parsing → `Reminder` document → saved in MongoDB.
-* **Cron Job** – Runs each minute, queries reminders whose `remindAt` ≤ now, sends email via Resend, then either deletes (non‑recurring) or updates `remindAt` for recurring reminders.
+* **Scheduler** – The core reminder‑dispatch logic lives in `utils/cron.jobs.ts`. It is **not** run automatically; instead it is executed when the Express endpoint `POST /api/cron` is called. This design lets you use any external scheduler (e.g., a cloud cron service, Kubernetes CronJob, or a simple `curl` command) to trigger reminder processing at your desired frequency.
 * **User Model** – Stores Discord ID, email, and timezone (used by the LLM prompt).
-* **Health‑check Server** – A minimal HTTP server starts on port 3000 when the bot boots. It responds with `200 OK` and a JSON payload (`{ status: "ok" }`). This is useful for uptime monitors and container orchestration health probes.
+* **Health‑check & API Server** – An Express server starts on port 3000 when the bot boots. It provides:
+  * `GET /` – health‑check (`{ "status": "ok" }`)
+  * `POST /api/cron` – runs the reminder‑dispatch job on demand.
 
 ---
 
@@ -159,7 +161,7 @@ npm run build
 # Deploy slash commands to Discord (run once or after adding new commands)
 node dist/deploy-commands.js
 
-# Start the bot (runs the Discord client, cron scheduler, **and** the health‑check HTTP server)
+# Start the bot (runs the Discord client and the Express HTTP server)
 npm start
 ```
 
@@ -170,7 +172,14 @@ Server started on port 3000
 Ready! Logged in as <BotName>#1234
 ```
 
-The HTTP server does not interfere with Discord functionality; it simply provides a quick way to verify that the process is alive (e.g., `curl http://localhost:3000` → `{"status":"ok"}`).
+**Important:** The reminder‑dispatch logic is **not** scheduled internally. To actually send reminders you must trigger the endpoint, e.g.:
+
+```bash
+# Manual trigger (useful for testing)
+curl -X POST http://localhost:3000/api/cron
+```
+
+For production you can set up any external scheduler to call the endpoint at the desired frequency (e.g., every minute).
 
 ---
 
@@ -228,15 +237,18 @@ Same options as `/email`.
 
 **No options.** The bot responds with an embed showing title, scheduled time, and repeat mode.
 
-### Health‑check endpoint  
+### Health‑check & API endpoints  
 
-A simple HTTP endpoint is exposed for monitoring:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | `GET` | Simple health‑check; returns `{ "status": "ok" }`. |
+| `/api/cron` | `POST` | Triggers the reminder‑dispatch job. Should be called by an external scheduler (e.g., every minute) or manually for testing. |
 
-- **URL:** `http://localhost:3000/` (or the host/port you expose)
-- **Method:** `GET`
-- **Response:** `200 OK` with JSON `{ "status": "ok" }`
+**Example manual trigger:**
 
-Use this endpoint with uptime monitors, Kubernetes liveness probes, or simple `curl` checks.
+```bash
+curl -X POST http://localhost:3000/api/cron
+```
 
 ---
 
@@ -248,8 +260,8 @@ Use this endpoint with uptime monitors, Kubernetes liveness probes, or simple `c
 npm run dev
 ```
 
-* `ts-node src/index.ts` runs the bot directly from source (includes the HTTP server).  
-* `ts-node src/utils/cron.jobs.ts` runs the scheduler concurrently if you prefer to separate concerns during debugging.
+* `ts-node src/index.ts` runs the bot directly from source (includes the Express server).  
+* `ts-node src/utils/cron.jobs.ts` can be executed independently to test the scheduler logic.
 
 Both processes share the same `.env` configuration.
 
@@ -309,7 +321,8 @@ docker run -d --env-file .env -p 3000:3000 remify
 - [ ] Enable MongoDB TLS/SSL for secure connections.  
 - [ ] Rotate API keys periodically.  
 - [ ] Monitor logs (e.g., with `pm2 logs` or a logging service).  
-- [ ] Optionally configure a reverse proxy or load balancer to expose the health‑check endpoint securely.
+- [ ] Configure an external cron service (or Kubernetes CronJob) to `POST http://<host>:3000/api/cron` at your desired interval.  
+- [ ] Optionally place the health‑check endpoint behind a reverse proxy or load balancer for secure access.
 
 ---
 
@@ -318,13 +331,13 @@ docker run -d --env-file .env -p 3000:3000 remify
 | Issue | Solution |
 |-------|----------|
 | **Bot fails to start – “No token provided”** | Verify `DISCORD_BOT_TOKEN` is present in `.env`. |
-| **Reminders never fire** | Ensure the cron job is running (`npm start` launches both processes). Check MongoDB connection and that `remindAt` dates are in the future. |
+| **Reminders never fire** | Ensure the `/api/cron` endpoint is being called (e.g., by an external scheduler). Check MongoDB connection and that `remindAt` dates are in the future. |
 | **Emails not delivered** | Verify `RESEND_API_KEY` and that the `from` address is configured in your Resend dashboard. Check Resend’s activity logs for rejected messages. |
 | **LLM returns invalid JSON** | The bot strips code fences before parsing. If parsing still fails, the model may have misunderstood; try re‑phrasing the reminder. |
 | **Timezone is wrong** | Use `/profile timezone:<IANA_TZ>` to set the correct timezone. |
 | **Command not recognized** | Run `node dist/deploy-commands.js` again to (re)register slash commands. |
-| **MongoDB connection error** | Confirm `MONGODB_URI` is correct and reachable from the host. Check network/firewall rules. |
 | **Health endpoint returns non‑200** | Ensure the process is running and listening on port 3000. Check for port conflicts or firewall blocks. |
+| **Cron endpoint returns 500** | Inspect the server logs for the error stack. Common causes are MongoDB connectivity issues or missing environment variables. |
 
 For further help, open an issue on GitHub or join the project's Discord (link in the repo description).
 
@@ -346,29 +359,4 @@ We welcome contributions! Follow these steps:
 
 1. **Fork** the repository.  
 2. **Create a feature branch**: `git checkout -b feat/awesome-feature`.  
-3. **Install dependencies** (`npm ci`) and set up a `.env` file.  
-4. **Make your changes** – ensure they pass linting (`npm run lint`).  
-5. **Write tests** (if applicable) and run them (`npm test`).  
-6. **Commit** with a clear message and **push** to your fork.  
-7. Open a **Pull Request** targeting `main`.  
-
-### Pull Request Guidelines  
-
-- Follow the existing code style (ESLint).  
-- Include a brief description of the change and any relevant issue numbers.  
-- Update the README if you add new commands or configuration options.  
-
----
-
-## License & Credits  
-
-**License:** ISC – see the `LICENSE` file for details.  
-
-### Credits  
-
-- **Discord.js** – Powerful Discord API library.  
-- **Groq** – Provides the OpenAI‑compatible LLM endpoint.  
-- **Resend** – Transactional email service.  
-- **Mongoose** – MongoDB object modeling.  
-
-Special thanks to the open‑source community for the tools that make this project possible.  
+3. **Install dependencies** (`npm ci`) and set up a `.env`
