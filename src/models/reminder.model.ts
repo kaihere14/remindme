@@ -3,6 +3,7 @@ import { Schema, model } from "mongoose";
 export type RepeatType = "none" | "daily" | "weekly";
 
 export interface IReminder {
+  _id?:string;
   // Identity
   discordId: string;     // Discord user ID (input identity)
   email: string;         // Where reminder will be sent
