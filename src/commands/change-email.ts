@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import User from '../models/user.models';
-import Reminder from '../models/reminder.model';
+import Reminder, { IReminder } from '../models/reminder.model';
 
 
 module.exports = {
@@ -18,7 +18,9 @@ module.exports = {
         }
         const reminders = await Reminder.find({ discordId: interaction.user.id });
         for(let i = 0 ;i<reminders.length;i++){
-            await Reminder.findOneAndUpdate({ discordId: interaction.user.id }, { email: interaction.options.getString("email") });
+            //update email in all reminders
+            (reminders[i].email as any) = interaction.options.getString("email");
+            await reminders[i].save();
         }
         const embed = new EmbedBuilder()
             .setColor(0x5865f2)
