@@ -4,13 +4,7 @@ import path from "node:path";
 
 import express, { Request, Response } from "express";
 import { runCronJob } from "./utils/cron.jobs";
-import {
-  Client,
-  Events,
-  GatewayIntentBits,
-  Collection,
-  MessageFlags,
-} from "discord.js";
+import { Client, Events, GatewayIntentBits, Collection } from "discord.js";
 import connectDB from "./utils/connectDb";
 
 const token = process.env.DISCORD_BOT_TOKEN;
@@ -29,14 +23,22 @@ client.once(Events.ClientReady, (readyClient) => {
 (client as any).commands = new Collection();
 
 const commandsPath = path.join(__dirname, "commands");
+
+// Support both .ts (dev) and .js (production) files
 const commandFiles = fs
   .readdirSync(commandsPath)
-  .filter((file) => file.endsWith(".ts"));
+  .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-  // Set a new item in the Collection wiht the key as the command name and the value as the exported module
+  let command = require(filePath);
+
+  // Support both module.exports and export default
+  if (command.default) {
+    command = command.default;
+  }
+
+  // Set a new item in the Collection with the key as the command name and the value as the exported module
   if ("data" in command && "execute" in command) {
     (client as any).commands.set(command.data.name, command);
   } else {
@@ -64,12 +66,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
         content: "There was an error while executing this command!",
-        flags: MessageFlags.Ephemeral,
+        ephemeral: true,
       });
     } else {
       await interaction.reply({
         content: "There was an error while executing this command!",
-        flags: MessageFlags.Ephemeral,
+        ephemeral: true,
       });
     }
   }
@@ -77,9 +79,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 // Log in to Discord with your client's token
 connectDB()
-  .then(async() => {
+  .then(async () => {
     client.login(token);
-    
+
     const app = express();
     const PORT = process.env.PORT || 3000;
 

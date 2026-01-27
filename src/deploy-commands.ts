@@ -5,18 +5,30 @@ import "dotenv/config";
 
 const commands = [];
 const clientId = process.env.clientId;
-const guildId = process.env.guildId;
 const token = process.env.DISCORD_BOT_TOKEN;
+
+if (!clientId || !token) {
+  console.error("Missing clientId or DISCORD_BOT_TOKEN in .env file");
+  process.exit(1);
+}
 
 // Grab all the command files from the commands directory
 const commandsPath = path.join(__dirname, "commands");
+
+// Support both .ts (dev) and .js (production) files
 const commandFiles = fs
   .readdirSync(commandsPath)
-  .filter((file) => file.endsWith(".ts"));
+  .filter((file) => file.endsWith(".ts") || file.endsWith(".js"));
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
+  let command = require(filePath);
+
+  // Support both module.exports and export default
+  if (command.default) {
+    command = command.default;
+  }
+
   if ("data" in command && "execute" in command) {
     commands.push(command.data.toJSON());
   } else {
@@ -27,22 +39,25 @@ for (const file of commandFiles) {
 }
 
 // Construct and prepare an instance of the REST module
-const rest = new REST().setToken(token as string);
+const rest = new REST().setToken(token);
 
-// and deploy your commands!
+// Deploy commands GLOBALLY
 (async () => {
   try {
     console.log(
-      `Started refreshing ${commands.length} application (/) commands.`,
-    );
-    // The put method is used to fully refresh all commands in the guild with the current set
-    const data = await rest.put(
-      Routes.applicationGuildCommands(clientId as string, guildId as string),
-      { body: commands },
+      `Started refreshing ${commands.length} GLOBAL application (/) commands.`,
     );
 
+    // Register commands globally (not guild-specific)
+    const data = await rest.put(Routes.applicationCommands(clientId), {
+      body: commands,
+    });
+
     console.log(
-      `Successfully reloaded ${(data as any).length} application (/) commands.`,
+      `Successfully reloaded ${(data as any).length} GLOBAL application (/) commands.`,
+    );
+    console.log(
+      `⚠️  Note: Global commands may take up to 1 hour to propagate across all Discord servers.`,
     );
   } catch (error) {
     // And of course, make sure you catch and log any errors!
