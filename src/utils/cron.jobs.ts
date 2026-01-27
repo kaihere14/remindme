@@ -4,7 +4,7 @@ import connectDB from "./connectDb";
 import Reminder, { IReminder } from "../models/reminder.model";
 import { sendRemindEmail } from "./email.resend";
 
-// Connect to Database
+
  connectDB();
 
 cron.schedule("* * * * *", async () => {
