@@ -64,11 +64,12 @@ remify/
 │  │  └─ reminder.ts       # AI‑parsed reminder creation
 │  ├─ deploy-commands.ts   # Registers slash commands with Discord
 │  ├─ index.ts             # Bot entry point, command loader, error handling
-│  ├─ models/
-│  │  ├─ reminder.model.ts # Mongoose schema for reminders
-│  │  └─ user.models.ts    # Mongoose schema for user profiles
-│  └─ utils/
-│     └─ connectDb.ts      # MongoDB connection helper
+│  ├─ utils/
+│  │  ├─ connectDb.ts      # MongoDB connection helper
+│  │  └─ cron.jobs.ts      # Background scheduler that fires reminders (runs as a cron job)
+│  └─ models/
+│     ├─ reminder.model.ts # Mongoose schema for reminders
+│     └─ user.models.ts    # Mongoose schema for user profiles
 ├─ .env.example            # Sample environment variables
 ├─ eslint.config.ts        # ESLint rules
 ├─ package.json
@@ -76,6 +77,7 @@ remify/
 ```
 
 * **`index.ts`** – Connects to MongoDB, loads commands, and starts the Discord client.  
+* **`cron.jobs.ts`** – Contains the background scheduler that checks for due reminders and logs a startup message when the process begins. This file is now launched automatically alongside the bot via the updated `start` and `dev` scripts.  
 * **`deploy-commands.ts`** – One‑off script to register all slash commands globally or per guild.  
 * **`models/`** – Mongoose schemas that define the data shape for reminders and users.  
 * **`utils/connectDb.ts`** – Centralised MongoDB connection with error handling.  
@@ -137,21 +139,26 @@ DEFAULT_TIMEZONE=UTC
 ```bash
 # Compile TypeScript
 npm run build
+```
 
+#### Production
+
+```bash
 # Register slash commands (run once or after adding new commands)
 npm run deploy
 
-# Start the bot
+# Start the bot **and** the background cron scheduler
 npm start
 ```
 
-For rapid development you can skip the build step:
+#### Development
 
 ```bash
-npm run dev   # uses ts-node
+# Runs the bot and the cron scheduler concurrently using ts-node
+npm run dev
 ```
 
-The bot will connect to Discord, register its commands (if not already), and begin listening for interactions.
+> **Note:** The `start` and `dev` scripts now launch **both** the Discord client (`index.ts`) **and** the reminder scheduler (`cron.jobs.ts`) in parallel, ensuring reminders are processed even while you are developing.
 
 ---
 
@@ -277,7 +284,7 @@ We welcome contributions! Please follow these steps:
 | Step | Command |
 |------|---------|
 | Install dependencies | `npm install` |
-| Run the bot in dev mode | `npm run dev` |
+| Run the bot in dev mode (bot + cron) | `npm run dev` |
 | Build production bundle | `npm run build` |
 | Deploy slash commands | `npm run deploy` |
 | Lint | `npm run lint` |
@@ -301,6 +308,7 @@ We welcome contributions! Please follow these steps:
 | **Email not sent** | The current implementation only stores the email; you’ll need to integrate an email service (e.g., Nodemailer). |
 | **Slash commands not appearing** | Run `npm run deploy` again; it may take a few minutes for Discord to propagate changes. |
 | **Time‑zone issues** | Set `DEFAULT_TIMEZONE` in `.env` or provide a timezone when registering your email. |
+| **Cron scheduler not starting** | The startup log “Cron jobs initialized” appears in the console when `npm start` or `npm run dev` is executed. If you don’t see it, ensure you are using the latest scripts (`npm run start` / `npm run dev`). |
 
 For additional help, open an issue or join the discussion in the repository’s **Discussions** tab.
 
