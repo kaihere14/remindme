@@ -27,8 +27,9 @@ Current version: **1.0.0**
 |---------|-------------|--------|
 | **Natural‑language reminder creation** | ` /reminder details:"Buy milk tomorrow at 9am"` – AI extracts title, time, repeat. | ✅ Stable |
 | **List active reminders** | ` /list‑reminder` – Shows a nicely formatted embed of all pending reminders. | ✅ Stable |
-| **Email registration** | ` /user email:<address> timezone:<IANA>` – Stores user’s email & timezone. | ✅ Stable |
-| **Ping command** | ` /ping` – Simple health check. | ✅ Stable |
+| **Email registration** | ` /email email:<address> timezone:<IANA>` – Stores user’s email & timezone. | ✅ Stable |
+| **Change email** | ` /change-email email:<new‑address>` – Updates the stored email for the user and all of their existing reminders. | ✅ Stable |
+| **View profile** | ` /profile` – Displays the user’s email, timezone, reminder count, recent reminders, and join date. | ✅ Stable |
 | **Reminder archiving** | Reminders are automatically archived after they fire. | ✅ Stable |
 | **MongoDB persistence** | All reminders & user profiles survive bot restarts. | ✅ Stable |
 | **Extensible command set** | New slash commands can be added in `src/commands`. | ✅ Stable |
@@ -56,11 +57,11 @@ Current version: **1.0.0**
 remify/
 ├─ src/
 │  ├─ commands/
+│  │  ├─ change-email.ts   # Update stored email address
 │  │  ├─ email.ts          # Register user email & timezone
 │  │  ├─ listReminder.ts   # List active reminders (embed)
-│  │  ├─ ping.ts           # Simple health check
-│  │  ├─ reminder.ts       # AI‑parsed reminder creation
-│  │  └─ user.ts           # Helper for user profile
+│  │  ├─ profile.ts        # View user profile & recent reminders
+│  │  └─ reminder.ts       # AI‑parsed reminder creation
 │  ├─ deploy-commands.ts   # Registers slash commands with Discord
 │  ├─ index.ts             # Bot entry point, command loader, error handling
 │  ├─ models/
@@ -163,8 +164,8 @@ All interactions are performed via **slash commands**.
 | `/reminder` | `details` (string, required) | Natural‑language description of the reminder (e.g., “Submit report tomorrow at 5 pm daily”). |
 | `/list‑reminder` | — | Shows an embed with all active reminders for the invoking user. |
 | `/email` | `email` (string, required) `timezone` (string, optional) | Saves the user’s email address and optional IANA timezone for future reminders. |
-| `/ping` | — | Replies with “Pong!” – useful to verify the bot is alive. |
-| `/user` | (internal) | Helper command used by other commands to fetch user profile. |
+| `/change-email` | `email` (string, required) | Updates the stored email address for the user and propagates the change to all of their existing reminders. |
+| `/profile` | — | Displays the user’s profile: email, timezone, total reminders, recent reminders, and join date. |
 
 ### Example Flow
 
@@ -182,78 +183,13 @@ All interactions are performed via **slash commands**.
 
    `/list-reminder` – receives an embed with titles, dates, repeat status, and email target.
 
-4. **When the reminder fires**  
+4. **Update your email**  
 
-   The bot sends a direct message in Discord and, if an email is set, an email is dispatched (email sending logic can be extended).
+   `/change-email email:newaddress@example.com` – all future and existing reminders will now use the new address.
 
----
+5. **View your profile**  
 
-## Development
-
-### Linting
-
-The project uses a custom ESLint configuration (`eslint.config.ts`). Run:
-
-```bash
-npm run lint   # (add a script in package.json if not present)
-```
-
-### Testing
-
-At the moment there are no automated tests. Contributions that add unit/integration tests are highly encouraged.
-
-### Debugging
-
-```bash
-# Enable verbose logging
-export DEBUG=remify:*
-npm run dev
-```
-
-### Adding a New Command
-
-1. Create a new file in `src/commands/` exporting `data` (SlashCommandBuilder) and `execute`.  
-2. The command will be auto‑loaded by `src/index.ts`.  
-3. Run `npm run deploy` to register the new slash command with Discord.
-
----
-
-## Deployment
-
-### Production (Node)
-
-```bash
-# Build
-npm run build
-
-# Register commands (once per deployment)
-npm run deploy
-
-# Run as a background service (systemd example)
-cat <<EOF | sudo tee /etc/systemd/system/remify.service
-[Unit]
-Description=Remify Discord reminder bot
-After=network.target
-
-[Service]
-ExecStart=$(which node) /path/to/remify/dist/index.js
-Restart=on-failure
-EnvironmentFile=/path/to/remify/.env
-User=discordbot
-Group=discordbot
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable remify
-sudo systemctl start remify
-```
-
-### Docker (optional)
-
-A minimal Dockerfile can be added later; for now you can run the bot in any container that provides Node 20, the `.env` file, and network access to MongoDB and Discord.
+   `/profile` – shows a summary of your stored information and recent reminders.
 
 ---
 
@@ -302,9 +238,25 @@ No parameters. Returns an embed containing:
 
 Stores the data in the `users` collection.
 
-### `/ping`
+### `/change-email`
 
-No parameters. Replies with “Pong!” – useful for health checks.
+**Parameters**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `email` | string | ✅ | New email address to replace the existing one. |
+
+Updates the `email` field in the user profile and propagates the change to every reminder document belonging to the user.
+
+### `/profile`
+
+No parameters. Returns an embed with:
+
+* Email  
+* Timezone  
+* Total number of reminders  
+* A list of up to 5 most recent reminder titles  
+* Account creation date  
 
 ---
 
