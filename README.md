@@ -21,9 +21,9 @@
 - [Usage](#usage)  
   - [/reminder](#reminder)  
   - [/email](#email)  
-  - [/change‑email](#change-email)  
+  - [/change-email](#change-email)  
   - [/profile](#profile)  
-  - [/list‑reminder](#list-reminder)  
+  - [/list‑reminder](#list‑reminder)  
 - [API Endpoints](#api-endpoints)  
 - [Development](#development)  
   - [Running in Dev Mode](#running-in-dev-mode)  
@@ -175,6 +175,12 @@ Server started on port 3000
 Ready! Logged in as <BotName>#1234
 ```
 
+If the Discord client fails to log in (e.g., an invalid or missing `DISCORD_BOT_TOKEN`), the bot now prints a clear error message and exits with a non‑zero status:
+
+```
+Failed to connect to Discord: Error: Invalid token
+```
+
 #### Triggering the Scheduler  
 
 The reminder‑dispatch logic is **not** scheduled internally. To actually send reminders you must call the endpoint, e.g.:
@@ -319,7 +325,7 @@ docker run -d --env-file .env -p 3000:3000 remify
 - [ ] Rotate API keys periodically.  
 - [ ] Forward logs to a monitoring service (e.g., Logtail, Papertrail).  
 - [ ] Configure an external cron service (or Kubernetes CronJob) to `POST http://<host>:3000/api/cron` at the desired interval.  
-- [ ] Optionally place the health‑check endpoint behind a reverse proxy for added security.
+- [ ] Optionally place the health‑check endpoint behind a reverse proxy for added security.  
 
 ---
 
@@ -328,6 +334,7 @@ docker run -d --env-file .env -p 3000:3000 remify
 | Issue | Solution |
 |-------|----------|
 | **Bot fails to start – “No token provided”** | Verify `DISCORD_BOT_TOKEN` is present in `.env`. |
+| **Bot exits with “Failed to connect to Discord”** | Check that the token is correct and that the bot has the required scopes. The recent update adds explicit error handling that will terminate the process on login failure. |
 | **Reminders never fire** | Ensure the `/api/cron` endpoint is being called (e.g., by an external scheduler). Check MongoDB connection and that `remindAt` dates are in the future. |
 | **Emails not delivered** | Verify `RESEND_API_KEY` and that the `from` address is configured in your Resend dashboard. Check Resend’s activity logs for rejected messages. |
 | **LLM returns invalid JSON** | The bot strips code fences before parsing. If parsing still fails, re‑phrase the reminder. |
@@ -356,4 +363,21 @@ We welcome contributions! Follow these steps:
 
 1. **Fork** the repository.  
 2. **Create a feature branch**: `git checkout -b feat/awesome-feature`.  
-3. **Install dependencies
+3. **Install dependencies** (`npm ci`) and set up a `.env` file.  
+4. **Make your changes** and ensure the code passes linting (`npm run lint`).  
+5. **Run the bot** (`npm start`) to verify runtime behavior.  
+6. **Commit** with a clear message and **push** to your fork.  
+7. **Open a Pull Request** against the `main` branch.  
+
+### Development workflow  
+
+- **Code style** – Follow the existing ESLint rules.  
+- **Tests** – Add unit tests for new functionality; update the `test` script accordingly.  
+- **Documentation** – Update this README (or other docs) when you add public‑facing features.  
+
+---
+
+## License & Credits  
+
+**License:** MIT – see the [LICENSE](LICENSE) file for details.  
+
