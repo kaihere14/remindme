@@ -1,20 +1,22 @@
 import "dotenv/config"; // Must be first to ensure env vars are loaded
-import cron from "node-cron";
-import connectDB from "./connectDb";
+
 import Reminder, { IReminder } from "../models/reminder.model";
 import { sendRemindEmail } from "./email.resend";
 
-
- connectDB();
-
-cron.schedule("* * * * *", async () => {
+export const runCronJob = async () => {
   try {
+    console.log("Starting Cron Job...");
     const now = new Date();
     const dueReminders = await Reminder.find({
       remindAt: { $lte: now },
     });
 
-    if (!dueReminders.length) return;
+    if (!dueReminders.length) {
+      console.log("No due reminders found.");
+      return;
+    }
+
+    console.log(`Found ${dueReminders.length} due reminders.`);
 
     const bulkOps: any[] = [];
 
@@ -32,7 +34,7 @@ cron.schedule("* * * * *", async () => {
             });
           } else {
             const nextDate = new Date(reminder.remindAt);
-            
+
             if (reminder.repeat === "daily") {
               nextDate.setDate(nextDate.getDate() + 1);
             } else if (reminder.repeat === "weekly") {
@@ -65,4 +67,4 @@ cron.schedule("* * * * *", async () => {
   } catch (error) {
     console.error("Cron Job Error:", error);
   }
-});
+};

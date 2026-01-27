@@ -1,7 +1,9 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
-import http from "node:http"
+
+import express, { Request, Response } from "express";
+import { runCronJob } from "./utils/cron.jobs";
 import {
   Client,
   Events,
@@ -17,10 +19,6 @@ if (!token) {
   console.error("No token provided");
   process.exit(1);
 }
-const s = new http.Server()
-s.listen(3000, () => {
-  console.log("Server started on port 3000");
-})
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -47,7 +45,6 @@ for (const file of commandFiles) {
     );
   }
 }
-
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -78,9 +75,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 // Log in to Discord with your client's token
-connectDB().then(() => {
-  client.login(token);
-}).catch((error) => {
-  console.error("Failed to connect to MongoDB:", error);
-  process.exit(1);
-});
+connectDB()
+  .then(() => {
+    client.login(token);
+
+    const app = express();
+    const PORT = process.env.PORT || 3000;
+
+    app.get("/", (req: Request, res: Response) => {
+      res.send("RemindMe Bot is running");
+    });
+
+    app.get("/api/cron", async (req: Request, res: Response) => {
+      try {
+        await runCronJob();
+        res.status(200).send("Cron job executed successfully");
+      } catch (error) {
+        console.error("Error triggering cron job:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Failed to connect to MongoDB:", error);
+    process.exit(1);
+  });
