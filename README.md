@@ -126,9 +126,11 @@ src/
 git clone https://github.com/kaihere14/remindme.git
 cd remindme
 
-# 2️⃣ Install exact dependency versions
+# 2️⃣ Install exact dependency versions (reproducible)
 npm ci
 ```
+
+> **Note:** The `build` script (`npm run build`) now runs `npm install` internally, so you can also skip the explicit `npm ci` step and go straight to `npm run build`. Running `npm ci` first is recommended for a clean, reproducible environment.
 
 ### Configuration  
 
@@ -156,7 +158,7 @@ DEFAULT_TIMEZONE=UTC
 ### Running the Bot  
 
 ```bash
-# Build the TypeScript source
+# Build the TypeScript source (installs deps if needed)
 npm run build
 
 # Register slash commands with Discord (run after any command change)
@@ -354,29 +356,4 @@ We welcome contributions! Follow these steps:
 
 1. **Fork** the repository.  
 2. **Create a feature branch**: `git checkout -b feat/awesome-feature`.  
-3. **Install dependencies** (`npm ci`) and set up a `.env` file as described above.  
-4. **Make your changes** and ensure the code passes linting (`npm run lint`).  
-5. **Run the bot** (`npm run dev`) to verify functionality.  
-6. **Commit** with a clear message following the Conventional Commits format.  
-7. **Open a Pull Request** against the `main` branch.  
-
-### Review Process  
-
-- CI will run linting and type‑checking automatically.  
-- A maintainer will review the PR, request changes if needed, and merge once approved.  
-
----
-
-## License & Credits  
-
-**License:** MIT © 2024 Kaihere14. See the [LICENSE](LICENSE) file for details.
-
-### Credits  
-
-- **discord.js** – Discord API wrapper.  
-- **Groq** – OpenAI‑compatible LLM endpoint.  
-- **Resend** – Transactional email service.  
-- **Mongoose** – MongoDB object modeling.  
-- **Express** – Minimal HTTP server for health checks and cron endpoint.  
-
-Special thanks to all contributors who have helped shape Remify!
+3. **Install dependencies
