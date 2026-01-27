@@ -175,11 +175,7 @@ Server started on port 3000
 Ready! Logged in as <BotName>#1234
 ```
 
-If the Discord client fails to log in (e.g., an invalid or missing `DISCORD_BOT_TOKEN`), the bot now prints a clear error message and exits with a non‑zero status:
-
-```
-Failed to connect to Discord: Error: Invalid token
-```
+If the Discord client fails to log in (e.g., an invalid or missing `DISCORD_BOT_TOKEN`), the process will terminate and Node will output the underlying error stack trace.
 
 #### Triggering the Scheduler  
 
@@ -334,7 +330,7 @@ docker run -d --env-file .env -p 3000:3000 remify
 | Issue | Solution |
 |-------|----------|
 | **Bot fails to start – “No token provided”** | Verify `DISCORD_BOT_TOKEN` is present in `.env`. |
-| **Bot exits with “Failed to connect to Discord”** | Check that the token is correct and that the bot has the required scopes. The recent update adds explicit error handling that will terminate the process on login failure. |
+| **Bot exits with an error on login** | Check that the token is correct and that the bot has the required scopes. The login promise rejection will cause the process to terminate, displaying the error stack. |
 | **Reminders never fire** | Ensure the `/api/cron` endpoint is being called (e.g., by an external scheduler). Check MongoDB connection and that `remindAt` dates are in the future. |
 | **Emails not delivered** | Verify `RESEND_API_KEY` and that the `from` address is configured in your Resend dashboard. Check Resend’s activity logs for rejected messages. |
 | **LLM returns invalid JSON** | The bot strips code fences before parsing. If parsing still fails, re‑phrase the reminder. |
@@ -364,20 +360,4 @@ We welcome contributions! Follow these steps:
 1. **Fork** the repository.  
 2. **Create a feature branch**: `git checkout -b feat/awesome-feature`.  
 3. **Install dependencies** (`npm ci`) and set up a `.env` file.  
-4. **Make your changes** and ensure the code passes linting (`npm run lint`).  
-5. **Run the bot** (`npm start`) to verify runtime behavior.  
-6. **Commit** with a clear message and **push** to your fork.  
-7. **Open a Pull Request** against the `main` branch.  
-
-### Development workflow  
-
-- **Code style** – Follow the existing ESLint rules.  
-- **Tests** – Add unit tests for new functionality; update the `test` script accordingly.  
-- **Documentation** – Update this README (or other docs) when you add public‑facing features.  
-
----
-
-## License & Credits  
-
-**License:** MIT – see the [LICENSE](LICENSE) file for details.  
-
+4. **
