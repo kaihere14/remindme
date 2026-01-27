@@ -1,6 +1,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import http from "node:http"
 import {
   Client,
   Events,
@@ -16,6 +17,10 @@ if (!token) {
   console.error("No token provided");
   process.exit(1);
 }
+const s = new http.Server()
+s.listen(3000, () => {
+  console.log("Server started on port 3000");
+})
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
