@@ -24,6 +24,7 @@
   - [/change‑email](#change-email)  
   - [/profile](#profile)  
   - [/list‑reminder](#list-reminder)  
+  - [Health‑check endpoint](#health-check-endpoint)  
 - [Development](#development)  
   - [Running in Dev Mode](#running-in-dev-mode)  
   - [Testing](#testing)  
@@ -49,6 +50,7 @@
 | **List & manage reminders** | Commands to list upcoming reminders and delete/archieve them. | ✅ Stable |
 | **Slash‑command deployment script** | `src/deploy-commands.ts` registers all commands with Discord automatically. | ✅ Stable |
 | **Cron‑based scheduler** | Runs every minute, finds due reminders, sends emails, and updates or deletes them. | ✅ Stable |
+| **Basic HTTP health server** | A lightweight HTTP server listens on port 3000 and returns a simple health‑check response. | ✅ Stable |
 | **TypeScript + ESLint** | Full type safety and linting for maintainability. | ✅ Stable |
 
 ---
@@ -64,6 +66,7 @@
 | **Database** | MongoDB (via `mongoose` v9) | Flexible schema for user & reminder data |
 | **Email** | `resend` | Simple transactional email service |
 | **Scheduling** | `node-cron` | Minute‑level cron jobs |
+| **HTTP Server** | Node’s built‑in `http` module | Zero‑dependency health‑check endpoint |
 | **Environment** | `dotenv` | Secure handling of secrets |
 | **Linting** | ESLint + `@typescript-eslint` | Code quality enforcement |
 | **Build** | TypeScript compiler (`tsc`) | Transpiles to JavaScript for production |
@@ -88,7 +91,7 @@ src/
 │   ├─ cron.jobs.ts     # Scheduler that sends emails
 │   └─ email.resend.ts  # Wrapper around Resend API
 ├─ deploy-commands.ts   # Registers slash commands with Discord
-├─ index.ts             # Bot bootstrap (client, command loader)
+├─ index.ts             # Bot bootstrap (client, command loader, HTTP server)
 └─ ...                  # Miscellaneous TS config files
 ```
 
@@ -96,6 +99,7 @@ src/
 * **Reminder Flow** – `/reminder` → LLM parsing → `Reminder` document → saved in MongoDB.
 * **Cron Job** – Runs each minute, queries reminders whose `remindAt` ≤ now, sends email via Resend, then either deletes (non‑recurring) or updates `remindAt` for recurring reminders.
 * **User Model** – Stores Discord ID, email, and timezone (used by the LLM prompt).
+* **Health‑check Server** – A minimal HTTP server starts on port 3000 when the bot boots. It responds with `200 OK` and a JSON payload (`{ status: "ok" }`). This is useful for uptime monitors and container orchestration health probes.
 
 ---
 
@@ -155,11 +159,18 @@ npm run build
 # Deploy slash commands to Discord (run once or after adding new commands)
 node dist/deploy-commands.js
 
-# Start the bot (runs the Discord client + cron scheduler)
+# Start the bot (runs the Discord client, cron scheduler, **and** the health‑check HTTP server)
 npm start
 ```
 
-The bot will connect to MongoDB, log in to Discord, and begin processing reminders.
+When the process starts you should see:
+
+```
+Server started on port 3000
+Ready! Logged in as <BotName>#1234
+```
+
+The HTTP server does not interfere with Discord functionality; it simply provides a quick way to verify that the process is alive (e.g., `curl http://localhost:3000` → `{"status":"ok"}`).
 
 ---
 
@@ -195,12 +206,6 @@ The bot replies with a confirmation once the reminder is stored.
 |--------|-------------|----------|
 | `address` | Valid email address | ✅ |
 
-**Example:**  
-
-```
-/email address: user@example.com
-```
-
 ### `/change-email`  
 
 **Purpose:** Update the stored email address.  
@@ -223,6 +228,16 @@ Same options as `/email`.
 
 **No options.** The bot responds with an embed showing title, scheduled time, and repeat mode.
 
+### Health‑check endpoint  
+
+A simple HTTP endpoint is exposed for monitoring:
+
+- **URL:** `http://localhost:3000/` (or the host/port you expose)
+- **Method:** `GET`
+- **Response:** `200 OK` with JSON `{ "status": "ok" }`
+
+Use this endpoint with uptime monitors, Kubernetes liveness probes, or simple `curl` checks.
+
 ---
 
 ## Development  
@@ -233,8 +248,8 @@ Same options as `/email`.
 npm run dev
 ```
 
-* `ts-node src/index.ts` runs the bot directly from source.  
-* `ts-node src/utils/cron.jobs.ts` runs the scheduler concurrently.  
+* `ts-node src/index.ts` runs the bot directly from source (includes the HTTP server).  
+* `ts-node src/utils/cron.jobs.ts` runs the scheduler concurrently if you prefer to separate concerns during debugging.
 
 Both processes share the same `.env` configuration.
 
@@ -244,7 +259,7 @@ The repository currently contains no automated tests. To add tests:
 
 1. Install a test runner (e.g., Jest).  
 2. Create `__tests__` directories alongside source files.  
-3. Run `npm test` (update the script in `package.json`).
+3. Update the `test` script in `package.json` and run `npm test`.
 
 ### Code Style & Linting  
 
@@ -284,7 +299,7 @@ Build & run:
 
 ```bash
 docker build -t remify .
-docker run -d --env-file .env remify
+docker run -d --env-file .env -p 3000:3000 remify
 ```
 
 ### Production Checklist  
@@ -294,6 +309,7 @@ docker run -d --env-file .env remify
 - [ ] Enable MongoDB TLS/SSL for secure connections.  
 - [ ] Rotate API keys periodically.  
 - [ ] Monitor logs (e.g., with `pm2 logs` or a logging service).  
+- [ ] Optionally configure a reverse proxy or load balancer to expose the health‑check endpoint securely.
 
 ---
 
@@ -308,6 +324,7 @@ docker run -d --env-file .env remify
 | **Timezone is wrong** | Use `/profile timezone:<IANA_TZ>` to set the correct timezone. |
 | **Command not recognized** | Run `node dist/deploy-commands.js` again to (re)register slash commands. |
 | **MongoDB connection error** | Confirm `MONGODB_URI` is correct and reachable from the host. Check network/firewall rules. |
+| **Health endpoint returns non‑200** | Ensure the process is running and listening on port 3000. Check for port conflicts or firewall blocks. |
 
 For further help, open an issue on GitHub or join the project's Discord (link in the repo description).
 
@@ -355,5 +372,3 @@ We welcome contributions! Follow these steps:
 - **Mongoose** – MongoDB object modeling.  
 
 Special thanks to the open‑source community for the tools that make this project possible.  
-
----
