@@ -78,7 +78,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 // Log in to Discord with your client's token
 connectDB()
   .then(async() => {
-    await client.login(token);
+    client.login(token);
     
     const app = express();
     const PORT = process.env.PORT || 3000;
