@@ -6,6 +6,7 @@ import { sendRemindEmail } from "./email.resend";
 
 // Connect to Database
  connectDB();
+ console.log("started jobs")
 
 cron.schedule("* * * * *", async () => {
   try {
