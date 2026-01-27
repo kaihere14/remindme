@@ -2,7 +2,7 @@
 
 ![GitHub license](https://img.shields.io/github/license/kaihere14/remindme) ![GitHub package.json version](https://img.shields.io/github/package-json/v/kaihere14/remindme) ![GitHub issues](https://img.shields.io/github/issues/kaihere14/remindme) ![GitHub stars](https://img.shields.io/github/stars/kaihere14/remindme)  
 
-**Remify** is a Discord bot that lets users create natural‑language reminders, stores them in MongoDB, and sends reminder emails via **Resend**. It leverages **Groq’s OpenAI‑compatible API** to turn free‑form text into structured reminder data, handling one‑off, daily, and weekly recurrences.
+**Remify** is a Discord bot that lets users create natural‑language reminders, stores them in MongoDB, and sends reminder emails via **Resend**. It uses **Groq’s OpenAI‑compatible API** to turn free‑form text into structured reminder data, handling one‑off, daily, and weekly recurrences.
 
 > **Target audience** – Discord server owners and community managers who want a lightweight, AI‑enhanced reminder system without leaving Discord.
 
@@ -24,11 +24,11 @@
   - [/change‑email](#change-email)  
   - [/profile](#profile)  
   - [/list‑reminder](#list-reminder)  
-  - [Health‑check & API endpoints](#health-check--api-endpoints)  
+- [API Endpoints](#api-endpoints)  
 - [Development](#development)  
   - [Running in Dev Mode](#running-in-dev-mode)  
   - [Testing](#testing)  
-  - [Code Style & Linting](#code-style--linting)  
+  - [Linting & Code Style](#linting--code-style)  
 - [Deployment](#deployment)  
   - [Docker (optional)](#docker-optional)  
   - [Production Checklist](#production-checklist)  
@@ -49,8 +49,8 @@
 | **User profile** | Stores Discord ID, email, and timezone in MongoDB. | ✅ Stable |
 | **List & manage reminders** | Commands to list upcoming reminders and delete/archieve them. | ✅ Stable |
 | **Slash‑command deployment script** | `src/deploy-commands.ts` registers all commands with Discord automatically. | ✅ Stable |
-| **API‑triggered scheduler** | An Express endpoint (`POST /api/cron`) runs the reminder‑dispatch logic on demand. This enables external cron services or manual triggers. | ✅ Stable |
-| **Basic HTTP health server** | A lightweight HTTP server listens on port 3000 and returns a simple health‑check response. | ✅ Stable |
+| **API‑triggered scheduler** | An Express endpoint (`POST /api/cron`) runs the reminder‑dispatch logic on demand. | ✅ Stable |
+| **Health‑check HTTP server** | A lightweight HTTP server listens on port 3000 and returns a simple health‑check response. | ✅ Stable |
 | **TypeScript + ESLint** | Full type safety and linting for maintainability. | ✅ Stable |
 
 ---
@@ -70,6 +70,7 @@
 | **Environment** | `dotenv` | Secure handling of secrets |
 | **Linting** | ESLint + `@typescript-eslint` | Code quality enforcement |
 | **Build** | TypeScript compiler (`tsc`) | Transpiles to JavaScript for production |
+| **Dev Dependencies** | `@types/express`, `@typescript-eslint/eslint-plugin`, `@types/node`, `ts-node`, `eslint`, `typescript` | Type definitions & tooling for a smooth development experience |
 
 ---
 
@@ -97,7 +98,7 @@ src/
 
 * **Command Loader** – `index.ts` reads every `*.ts` file in `src/commands`, validates the exported `data` (SlashCommandBuilder) and `execute` function, and registers them in a `Collection`.
 * **Reminder Flow** – `/reminder` → LLM parsing → `Reminder` document → saved in MongoDB.
-* **Scheduler** – The core reminder‑dispatch logic lives in `utils/cron.jobs.ts`. It is **not** run automatically; instead it is executed when the Express endpoint `POST /api/cron` is called. This design lets you use any external scheduler (e.g., a cloud cron service, Kubernetes CronJob, or a simple `curl` command) to trigger reminder processing at your desired frequency.
+* **Scheduler** – Core reminder‑dispatch logic lives in `utils/cron.jobs.ts`. It is **not** run automatically; instead it is executed when the Express endpoint `POST /api/cron` is called. This design lets you use any external scheduler (e.g., a cloud cron service, Kubernetes CronJob, or a simple `curl` command) to trigger reminder processing at your desired frequency.
 * **User Model** – Stores Discord ID, email, and timezone (used by the LLM prompt).
 * **Health‑check & API Server** – An Express server starts on port 3000 when the bot boots. It provides:
   * `GET /` – health‑check (`{ "status": "ok" }`)
@@ -112,7 +113,7 @@ src/
 | Tool | Minimum Version |
 |------|-----------------|
 | **Node.js** | 20.x |
-| **npm** | 10.x (comes with Node) |
+| **npm** | 10.x (bundled with Node) |
 | **MongoDB** | Any reachable instance (Atlas, local, etc.) |
 | **Discord Application** | Bot token with `applications.commands` scope |
 | **Groq API Key** | For LLM parsing (`GROQ_API_KEY`) |
@@ -125,8 +126,8 @@ src/
 git clone https://github.com/kaihere14/remindme.git
 cd remindme
 
-# 2️⃣ Install dependencies
-npm ci   # installs exact versions from package-lock.json
+# 2️⃣ Install exact dependency versions
+npm ci
 ```
 
 ### Configuration  
@@ -150,7 +151,7 @@ RESEND_API_KEY=YOUR_RESEND_API_KEY
 DEFAULT_TIMEZONE=UTC
 ```
 
-> **Tip:** Keep `.env` out of version control (`.gitignore` already excludes it).
+> **Security note:** `.env` is already listed in `.gitignore`; never commit it.
 
 ### Running the Bot  
 
@@ -158,28 +159,30 @@ DEFAULT_TIMEZONE=UTC
 # Build the TypeScript source
 npm run build
 
-# Deploy slash commands to Discord (run once or after adding new commands)
+# Register slash commands with Discord (run after any command change)
 node dist/deploy-commands.js
 
-# Start the bot (runs the Discord client and the Express HTTP server)
+# Start the bot (Discord client + Express HTTP server)
 npm start
 ```
 
-When the process starts you should see:
+You should see output similar to:
 
 ```
 Server started on port 3000
 Ready! Logged in as <BotName>#1234
 ```
 
-**Important:** The reminder‑dispatch logic is **not** scheduled internally. To actually send reminders you must trigger the endpoint, e.g.:
+#### Triggering the Scheduler  
+
+The reminder‑dispatch logic is **not** scheduled internally. To actually send reminders you must call the endpoint, e.g.:
 
 ```bash
 # Manual trigger (useful for testing)
 curl -X POST http://localhost:3000/api/cron
 ```
 
-For production you can set up any external scheduler to call the endpoint at the desired frequency (e.g., every minute).
+In production, configure an external scheduler (cron, GitHub Actions, Kubernetes CronJob, etc.) to `POST` this endpoint at the desired frequency (e.g., every minute).
 
 ---
 
@@ -189,9 +192,7 @@ All interactions are via **Discord slash commands**. The bot must be invited to 
 
 ### `/reminder`  
 
-**Purpose:** Create a new reminder.  
-
-**Options:**  
+Create a new reminder.
 
 | Option | Description | Required |
 |--------|-------------|----------|
@@ -207,9 +208,7 @@ The bot replies with a confirmation once the reminder is stored.
 
 ### `/email`  
 
-**Purpose:** Set the email address that reminders will be sent to.  
-
-**Options:**  
+Set the email address that reminders will be sent to.
 
 | Option | Description | Required |
 |--------|-------------|----------|
@@ -217,34 +216,30 @@ The bot replies with a confirmation once the reminder is stored.
 
 ### `/change-email`  
 
-**Purpose:** Update the stored email address.  
-
-Same options as `/email`.
+Update the stored email address (same options as `/email`).
 
 ### `/profile`  
 
-**Purpose:** View or update your profile (currently only timezone).  
-
-**Options (optional):**  
+View or update your profile (currently only timezone).
 
 | Option | Description |
 |--------|-------------|
-| `timezone` | IANA timezone string (e.g., `Europe/Paris`). If omitted, the bot shows the current profile. |
+| `timezone` *(optional)* | IANA timezone string (e.g., `Europe/Paris`). If omitted, the bot shows the current profile. |
 
 ### `/list-reminder`  
 
-**Purpose:** List all upcoming reminders for the invoking user.  
+List all upcoming reminders for the invoking user. No options required. The bot responds with an embed showing title, scheduled time, and repeat mode.
 
-**No options.** The bot responds with an embed showing title, scheduled time, and repeat mode.
+---
 
-### Health‑check & API endpoints  
+## API Endpoints  
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | `GET` | Simple health‑check; returns `{ "status": "ok" }`. |
+| `/` | `GET` | Health‑check; returns `{ "status": "ok" }`. |
 | `/api/cron` | `POST` | Triggers the reminder‑dispatch job. Should be called by an external scheduler (e.g., every minute) or manually for testing. |
 
-**Example manual trigger:**
+**Manual trigger example:**
 
 ```bash
 curl -X POST http://localhost:3000/api/cron
@@ -263,7 +258,7 @@ npm run dev
 * `ts-node src/index.ts` runs the bot directly from source (includes the Express server).  
 * `ts-node src/utils/cron.jobs.ts` can be executed independently to test the scheduler logic.
 
-Both processes share the same `.env` configuration.
+Both processes use the same `.env` configuration.
 
 ### Testing  
 
@@ -273,10 +268,10 @@ The repository currently contains no automated tests. To add tests:
 2. Create `__tests__` directories alongside source files.  
 3. Update the `test` script in `package.json` and run `npm test`.
 
-### Code Style & Linting  
+### Linting & Code Style  
 
 ```bash
-# Lint the project
+# Lint the entire project
 npx eslint . --ext .ts
 ```
 
@@ -288,7 +283,7 @@ The project uses **ESLint** with the `@typescript-eslint` plugin. Adjust rules i
 
 ### Docker (optional)  
 
-A Dockerfile is not included, but you can containerize the bot quickly:
+A Dockerfile is not shipped, but you can containerize the bot quickly:
 
 ```dockerfile
 # Dockerfile
@@ -316,13 +311,13 @@ docker run -d --env-file .env -p 3000:3000 remify
 
 ### Production Checklist  
 
-- [ ] Set `NODE_ENV=production` in your environment.  
-- [ ] Use a process manager (PM2, systemd, Docker) to keep the bot alive.  
-- [ ] Enable MongoDB TLS/SSL for secure connections.  
+- [ ] Set `NODE_ENV=production`.  
+- [ ] Use a process manager (PM2, systemd, Docker, etc.) to keep the bot alive.  
+- [ ] Enable TLS/SSL for MongoDB connections.  
 - [ ] Rotate API keys periodically.  
-- [ ] Monitor logs (e.g., with `pm2 logs` or a logging service).  
-- [ ] Configure an external cron service (or Kubernetes CronJob) to `POST http://<host>:3000/api/cron` at your desired interval.  
-- [ ] Optionally place the health‑check endpoint behind a reverse proxy or load balancer for secure access.
+- [ ] Forward logs to a monitoring service (e.g., Logtail, Papertrail).  
+- [ ] Configure an external cron service (or Kubernetes CronJob) to `POST http://<host>:3000/api/cron` at the desired interval.  
+- [ ] Optionally place the health‑check endpoint behind a reverse proxy for added security.
 
 ---
 
@@ -333,23 +328,23 @@ docker run -d --env-file .env -p 3000:3000 remify
 | **Bot fails to start – “No token provided”** | Verify `DISCORD_BOT_TOKEN` is present in `.env`. |
 | **Reminders never fire** | Ensure the `/api/cron` endpoint is being called (e.g., by an external scheduler). Check MongoDB connection and that `remindAt` dates are in the future. |
 | **Emails not delivered** | Verify `RESEND_API_KEY` and that the `from` address is configured in your Resend dashboard. Check Resend’s activity logs for rejected messages. |
-| **LLM returns invalid JSON** | The bot strips code fences before parsing. If parsing still fails, the model may have misunderstood; try re‑phrasing the reminder. |
+| **LLM returns invalid JSON** | The bot strips code fences before parsing. If parsing still fails, re‑phrase the reminder. |
 | **Timezone is wrong** | Use `/profile timezone:<IANA_TZ>` to set the correct timezone. |
 | **Command not recognized** | Run `node dist/deploy-commands.js` again to (re)register slash commands. |
 | **Health endpoint returns non‑200** | Ensure the process is running and listening on port 3000. Check for port conflicts or firewall blocks. |
-| **Cron endpoint returns 500** | Inspect the server logs for the error stack. Common causes are MongoDB connectivity issues or missing environment variables. |
+| **Cron endpoint returns 500** | Inspect server logs for the error stack. Common causes are MongoDB connectivity issues or missing environment variables. |
 
-For further help, open an issue on GitHub or join the project's Discord (link in the repo description).
+For additional help, open an issue on GitHub or join the project's Discord (link in the repo description).
 
 ---
 
 ## Roadmap  
 
-- **v2.0** – Add support for custom reminder channels (DM vs. server channel).  
+- **v2.0** – Support custom reminder channels (DM vs. server channel).  
 - **Web Dashboard** – Simple UI to view, edit, and delete reminders.  
-- **Recurring patterns** – More flexible recurrence (monthly, weekdays only).  
-- **Unit & Integration Tests** – Increase test coverage to >80 %.  
-- **Docker Compose** – Include MongoDB service for local development.  
+- **Advanced Recurrence** – Monthly, weekdays‑only, and custom cron‑style patterns.  
+- **Testing Suite** – Unit & integration tests targeting >80 % coverage.  
+- **Docker Compose** – Include a MongoDB service for local development.  
 
 ---
 
@@ -359,4 +354,29 @@ We welcome contributions! Follow these steps:
 
 1. **Fork** the repository.  
 2. **Create a feature branch**: `git checkout -b feat/awesome-feature`.  
-3. **Install dependencies** (`npm ci`) and set up a `.env`
+3. **Install dependencies** (`npm ci`) and set up a `.env` file as described above.  
+4. **Make your changes** and ensure the code passes linting (`npm run lint`).  
+5. **Run the bot** (`npm run dev`) to verify functionality.  
+6. **Commit** with a clear message following the Conventional Commits format.  
+7. **Open a Pull Request** against the `main` branch.  
+
+### Review Process  
+
+- CI will run linting and type‑checking automatically.  
+- A maintainer will review the PR, request changes if needed, and merge once approved.  
+
+---
+
+## License & Credits  
+
+**License:** MIT © 2024 Kaihere14. See the [LICENSE](LICENSE) file for details.
+
+### Credits  
+
+- **discord.js** – Discord API wrapper.  
+- **Groq** – OpenAI‑compatible LLM endpoint.  
+- **Resend** – Transactional email service.  
+- **Mongoose** – MongoDB object modeling.  
+- **Express** – Minimal HTTP server for health checks and cron endpoint.  
+
+Special thanks to all contributors who have helped shape Remify!
