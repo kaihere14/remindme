@@ -83,7 +83,7 @@ connectDB()
     client.login(token);
 
     const app = express();
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 3300;
 
     app.get("/", (req: Request, res: Response) => {
       res.send("RemindMe Bot is running");
