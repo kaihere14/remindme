@@ -1,10 +1,14 @@
+import HeroTitle from "@/component/HeroSection";
 import Navbar from "@/component/Navbar";
-import Image from "next/image";
+
+
+export const dynamic = "force-static";
 
 export default function Home() {
   return (
-    <div>
+    <div className="h-screen flex flex-col">
       <Navbar/>
+      <HeroTitle/>
     </div>
   );
 }
