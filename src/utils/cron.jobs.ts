@@ -2,6 +2,8 @@ import "dotenv/config"; // Must be first to ensure env vars are loaded
 
 import Reminder, { IReminder } from "../models/reminder.model";
 import { sendRemindEmail } from "./email.resend";
+import { client } from "..";
+import { EmbedBuilder } from "discord.js";
 
 export const runCronJob = async () => {
   try {
@@ -26,6 +28,19 @@ export const runCronJob = async () => {
           await sendRemindEmail({
             to: reminder.email,
             details: reminder,
+          });
+          //also reminding on discord
+          client.users.fetch(reminder.discordId).then(user => {
+            user.send({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle("Reminder Sent!")
+                  .setDescription(
+                    `Your Have a reminder "${reminder.title}" at ${reminder.remindAt}`,
+                  )
+                  .setColor("Green"),
+              ],
+            });
           });
 
           if (reminder.repeat === "none") {
