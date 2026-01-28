@@ -30,7 +30,7 @@ export const runCronJob = async () => {
             details: reminder,
           });
           //also reminding on discord
-          client.users.fetch(reminder.discordId).then(user => {
+          await client.users.fetch(reminder.discordId).then(user => {
             user.send({
               embeds: [
                 new EmbedBuilder()
