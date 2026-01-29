@@ -22,6 +22,7 @@ module.exports = {
             .setTitle("Profile")
             .addFields(
                 { name: "Email", value: user.email },
+                {name:"Google Calender", value: user.calendarRefreshToken ? "Linked" : "Not Linked"},
                 { name: "Timezone", value: user.timezone },
                 { name: "Reminders", value: reminders.length.toString() },
                 {name:"Recent Reminders", value: reminders.slice(0, 5).map((reminder,index) => `${index+1}. ${reminder.title}`).join("\n")},
