@@ -6,6 +6,7 @@ import express, { Request, Response } from "express";
 import { runCronJob } from "./utils/cron.jobs";
 import { Client, Events, GatewayIntentBits, Collection } from "discord.js";
 import connectDB from "./utils/connectDb";
+import { googleAuth, googleCallback } from "./utils/calenderLink";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 
@@ -97,6 +98,14 @@ connectDB()
         console.error("Error triggering cron job:", error);
         res.status(500).send("Internal Server Error");
       }
+    });
+    
+    app.get("/api/google-calender", (req:Request,res:Response)=>{
+      googleAuth(req,res);
+    });
+
+    app.get("/api/google-calender/callback", (req:Request,res:Response)=>{
+      googleCallback(req,res);
     });
 
     app.listen(PORT, () => {

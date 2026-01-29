@@ -7,6 +7,7 @@ export interface IReminder {
   // Identity
   discordId: string;     // Discord user ID (input identity)
   email: string;         // Where reminder will be sent
+  calendarEventId?: string|null;
 
   // Reminder content
   title: string;
@@ -44,6 +45,12 @@ const ReminderSchema = new Schema<IReminder>(
       type: String,
       required: true,
       maxlength: 200,
+    },
+
+    calendarEventId: {
+      type: String,
+      default: null,
+      index: true,
     },
 
     remindAt: {

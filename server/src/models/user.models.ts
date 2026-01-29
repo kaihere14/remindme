@@ -3,13 +3,16 @@ import { Schema, model } from "mongoose";
 export interface IUser {
   // Identity
   discordId: string;          // Discord user ID (primary identity)
+  calendarRefreshToken?: string;
 
   // Contact
   email: string;              // Email for reminders (trusted as-is)
+  
 
   // Preferences
   timezone: string;           // e.g. "Asia/Kolkata"
   remindersEnabled: boolean;
+  calendarEventsEnabled?: boolean;
 
   // Metadata
   createdAt: Date;
@@ -22,6 +25,18 @@ const UserSchema = new Schema<IUser>(
       type: String,
       required: true,
       unique: true,
+      index: true,
+    },
+
+    calendarRefreshToken:{
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    calendarEventsEnabled:{
+      type: Boolean,
+      default: false,
       index: true,
     },
 

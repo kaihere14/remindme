@@ -2,6 +2,9 @@ import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
 import Reminder from "../models/reminder.model";
 import User from "../models/user.models";
 import * as chrono from "chrono-node";
+import {  getAuthClient } from "../utils/calenderLink";
+import { google } from "googleapis";
+import type { calendar_v3 } from "googleapis";
 
 
 module.exports = {
@@ -60,6 +63,36 @@ module.exports = {
       });
       return;
     }
+    let calendarEventId:string | null|undefined = null;
+    if (user.calendarRefreshToken && user.calendarEventsEnabled) {
+        const auth = await getAuthClient(user.calendarRefreshToken);
+
+        const calendar = google.calendar({
+          version: "v3",
+          auth,
+        });
+
+        const event: calendar_v3.Schema$Event = {
+        summary: title,
+        description: "Created automatically via RemindMe Discord Bot",
+        start: {
+          dateTime: parsedDate.toISOString(),
+          timeZone: user.timezone,
+        },
+        end: {
+          dateTime: new Date(parsedDate.getTime() + 10 * 60 * 1000).toISOString(),
+          timeZone: user.timezone,
+        },
+    };
+
+
+        const res = await calendar.events.insert({
+          calendarId: "primary",
+          requestBody: event, // 👈 IMPORTANT
+        });
+
+        calendarEventId = (res.data).id ;
+      }
 
     await Reminder.create({
       discordId: interaction.user.id,
@@ -67,7 +100,9 @@ module.exports = {
       title,
       remindAt: parsedDate,
       repeat,
+      calendarEventId,
     });
+    
 
     await interaction.reply({
       content: `✅ **Reminder set!**\n\n📝 **Title:** ${title}\n⏰ **Time:** <t:${Math.floor(parsedDate.getTime() / 1000)}:F>\n🔁 **Repeat:** ${repeat}`,
