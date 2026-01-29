@@ -1,0 +1,15 @@
+# RemindMe Discord Bot - Robots.txt
+# Allow all search engines to crawl the site
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://remindme.bot/sitemap.xml
+
+# Specific pages for verification
+Allow: /privacy
+Allow: /tos
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

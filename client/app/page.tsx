@@ -7,7 +7,6 @@ export const dynamic = "force-static";
 export default function Home() {
   return (
     <div className="h-screen flex flex-col">
-      <Navbar/>
       <HeroTitle/>
     </div>
   );

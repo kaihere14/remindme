@@ -29,7 +29,7 @@ export function LandingButton({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 md:flex-row mt-5">
+    <div className="flex flex-wrap items-center gap-2 md:flex-row">
       <Button onClick={openNewTab} variant={variant}>
         {content}
       </Button>
