@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 
 const Navbar = () => {
   return (
-    <div  className='bg-background-100 backdrop-blur-[10px] flex flex-row lg:justify-around justify-between items-center w-full h-20 md:py-4 py-2 px-4 md:px-6 sticky top-0'>
+    <div  className='bg-background-100 backdrop-blur-[10px] flex flex-row lg:justify-around justify-between items-center w-full h-20 md:py-4 py-2 px-4 md:px-6 sticky top-0 z-50 relative' >
         <div className="left flex items-end">
             <div className="logo rounded-full overflow-hidden ">
                 <Image
@@ -22,7 +22,7 @@ const Navbar = () => {
                 <h1 className='text-2xl font-bold'><span className='text-zinc-200'>/</span> <Link href="/">RemindMe</Link></h1>
             </div>
         </div>
-        <div className="right flex flex-row items-center justify-center gap-5">
+        <div className="right flex flex-row items-center justify-center ">
             <div className="privacy">
                 <Link href="/privacy"><Button variant="ghost">Privacy</Button></Link>
             </div>

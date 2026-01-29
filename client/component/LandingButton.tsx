@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { HoverBorderGradient } from "@/components/ui/hover-border-gradient"
 import { ArrowUpIcon } from "lucide-react"
 
 type Props = {
@@ -30,19 +31,9 @@ export function LandingButton({
 
   return (
     <div className="flex flex-wrap items-center gap-2 md:flex-row">
-      <Button onClick={openNewTab} variant={variant}>
+      <HoverBorderGradient onClick={openNewTab}>
         {content}
-      </Button>
-
-      <Button
-        onClick={openNewTab}
-        variant="outline"
-        size="icon"
-        aria-label="Open in new tab"
-        className={`cursor-pointer ${hidden ? "hidden" : ""}`}
-      >
-        <ArrowUpIcon />
-      </Button>
+      </HoverBorderGradient>
     </div>
   )
 }
