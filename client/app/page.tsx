@@ -7,7 +7,7 @@ export const dynamic = "force-static";
 
 export default function Home() {
   return (
-    <div className="h-[calc(100vh-5rem)]  flex flex-col">
+    <div className="overflow-hidden">
       <BackgroundLines svgOptions={{ duration: 10 }} children={<HeroTitle />} />
     </div>
   );
