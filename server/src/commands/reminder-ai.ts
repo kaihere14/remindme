@@ -10,7 +10,7 @@ const client = new OpenAI({
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("reminder")
+    .setName("reminder-ai")
     .setDescription("Sets a reminder for the user.")
     .addStringOption((option) =>
       option
@@ -85,6 +85,9 @@ module.exports = {
     });
 
     await reminder.save();
-    await interaction.reply("✅ Reminder set successfully!");
+    await interaction.reply({
+      content: `✅ **Reminder set!**\n\n📝 **Title:** ${reminder.title}\n⏰ **Time:** <t:${Math.floor(reminder.remindAt.getTime() / 1000)}:F>\n🔁 **Repeat:** ${reminder.repeat}`,
+      ephemeral: true,
+    });
   },
 };
